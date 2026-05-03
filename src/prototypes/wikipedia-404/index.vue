@@ -71,7 +71,7 @@ function updateMenuMaxHeight() {
   if (!searchRef.value) return
   const bottom = searchRef.value.getBoundingClientRect().bottom
   const available = window.innerHeight - bottom
-  document.documentElement.style.setProperty('--search-menu-max-height', `${available * 0.8}px`)
+  document.documentElement.style.setProperty('--search-menu-max-height', `${available - 16}px`)
 }
 
 async function initGlobe() {
@@ -425,6 +425,21 @@ function onSubmit(query: string) {
 
 .not-found__search {
   width: 100%;
+}
+
+.not-found__search :deep(.cdx-menu) {
+  max-height: var(--search-menu-max-height, 70vh);
+  overflow-y: auto;
+}
+
+.not-found__search :deep(.cdx-typeahead-search__search-footer) {
+  position: sticky;
+  bottom: 0;
+  background-color: var(--background-color-base, #fff);
+}
+
+.not-found__search :deep(.cdx-typeahead-search__search-footer:hover) {
+  background-color: var(--background-color-interactive, #eaecf0);
 }
 
 @media (min-width: 768px) {
