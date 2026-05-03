@@ -14,10 +14,12 @@
     "snapshot:wiki-skins": "bash scripts/snapshot-wiki-skins.sh"
   },
   "dependencies": {
+    "@types/matter-js": "^0.20.2",
     "@wikimedia/codex": "^2.5.1",
     "@wikimedia/codex-design-tokens": "^2.5.1",
     "@wikimedia/codex-icons": "^2.5.1",
     "gsap": "^3.15.0",
+    "matter-js": "^0.20.0",
     "vue": "^3.5.13",
     "vue-router": "^4.5.0"
   },

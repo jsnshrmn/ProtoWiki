@@ -7,32 +7,38 @@ definePage({
 })
 
 import { computed, ref, onMounted, onUnmounted } from 'vue'
-import { gsap } from 'gsap'
+import * as Matter from 'matter-js'
 import { globalTheme } from '@/lib/theming'
 import SearchBar from '@/components/SearchBar.vue'
 
 const theme = computed(() => globalTheme.value)
 const searchRef = ref<HTMLElement | null>(null)
-const globeRef = ref<HTMLElement | null>(null)
+const globeRef = ref<HTMLDivElement | null>(null)
 
-// Clip-path polygons that tile the globe area (~11 irregular fragments)
-const PIECES = [
-  // Row 1
-  'polygon(0% 0%, 34% 0%, 31% 29%, 0% 27%)',
-  'polygon(34% 0%, 68% 0%, 66% 27%, 31% 29%)',
-  'polygon(68% 0%, 100% 0%, 100% 27%, 66% 27%)',
-  // Row 2
-  'polygon(0% 27%, 31% 29%, 27% 55%, 0% 53%)',
-  'polygon(31% 29%, 66% 27%, 64% 54%, 27% 55%)',
-  'polygon(66% 27%, 100% 27%, 100% 53%, 64% 54%)',
-  // Row 3
-  'polygon(0% 53%, 27% 55%, 32% 76%, 0% 75%)',
-  'polygon(27% 55%, 64% 54%, 70% 75%, 32% 76%)',
-  'polygon(64% 54%, 100% 53%, 100% 75%, 70% 75%)',
-  // Row 4
-  'polygon(0% 75%, 32% 76%, 48% 78%, 48% 100%, 0% 100%)',
-  'polygon(32% 76%, 70% 75%, 100% 75%, 100% 100%, 48% 100%, 48% 78%)',
+// IDs are column/row — rows dispatched top (1) to bottom (6)
+const ROWS: string[][] = [
+  ['1/1'],
+  ['1/2', '3/2', '4/2'],
+  ['1/3', '2/3', '3/3', '4/3'],
+  ['1/4', '2/4', '3/4', '4/4'],
+  ['1/5', '2/5', '3/5', '4/5'],
+  ['1/6', '2/6', '3/6', '4/6'],
 ]
+
+interface PieceState {
+  cloneEl: SVGSVGElement
+  body: Matter.Body
+  initX: number
+  initY: number
+}
+
+let svgEl: SVGSVGElement | null = null
+let overlay: HTMLDivElement | undefined
+let engine: Matter.Engine | undefined
+let runner: Matter.Runner | undefined
+let pieces: PieceState[] = []
+let rafId = 0
+let timers: ReturnType<typeof setTimeout>[] = []
 
 function updateMenuMaxHeight() {
   if (!searchRef.value) return
@@ -41,51 +47,135 @@ function updateMenuMaxHeight() {
   document.documentElement.style.setProperty('--search-menu-max-height', `${available * 0.8}px`)
 }
 
-let tweens: gsap.core.Tween[] = []
-let timer: ReturnType<typeof setTimeout> | undefined
-let overlay: HTMLDivElement | undefined
+async function initGlobe() {
+  if (!globeRef.value) return
+  const res = await fetch('/wikipedia-globe-pieces.svg')
+  const raw = await res.text()
+  if (!globeRef.value) return  // guard: component may have unmounted during fetch
+  // Make SVG responsive + remove gray background rect
+  const cleaned = raw
+    .replace(/(<svg\b[^>]*)\s+width="\d+"/, '$1')
+    .replace(/(<svg\b[^>]*)\s+height="\d+"/, '$1')
+    .replace(/<rect[^>]*fill="#F5F5F5"[^>]*\/>/, '')
+  globeRef.value.innerHTML = cleaned
+  svgEl = globeRef.value.querySelector('svg')
+}
 
-onMounted(() => {
-  updateMenuMaxHeight()
-  window.addEventListener('resize', updateMenuMaxHeight)
+function startAnimation() {
+  if (!svgEl || !globeRef.value) return
 
-  timer = setTimeout(() => {
-    if (!globeRef.value) return
-    const globeRect = globeRef.value.getBoundingClientRect()
+  const globeRect = globeRef.value.getBoundingClientRect()
+  const vw = window.innerWidth
+  const vh = window.innerHeight
 
-    // Fixed overlay so animated pieces never extend page scroll height
-    overlay = document.createElement('div')
-    overlay.style.cssText = 'position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:0'
-    document.body.appendChild(overlay)
+  engine = Matter.Engine.create({ gravity: { y: 2 } })
+  runner = Matter.Runner.create()
 
-    const clones = PIECES.map(clipPath => {
-      const el = document.createElement('div')
-      el.style.cssText = `position:absolute;top:${globeRect.top}px;left:${globeRect.left}px;width:${globeRect.width}px;height:${globeRect.height}px;background-image:url('/wikipedia-globe.svg');background-size:100% 100%;background-repeat:no-repeat;clip-path:${clipPath}`
-      overlay!.appendChild(el)
-      return el
+  const ground = Matter.Bodies.rectangle(vw / 2, vh + 25, vw * 3, 50, { isStatic: true })
+  const wallL = Matter.Bodies.rectangle(-25, vh / 2, 50, vh * 3, { isStatic: true })
+  const wallR = Matter.Bodies.rectangle(vw + 25, vh / 2, 50, vh * 3, { isStatic: true })
+  Matter.Composite.add(engine.world, [ground, wallL, wallR])
+  Matter.Runner.run(runner, engine)
+
+  overlay = document.createElement('div')
+  overlay.style.cssText = 'position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:10'
+  document.body.appendChild(overlay)
+
+  function tick() {
+    for (const p of pieces) {
+      const dx = p.body.position.x - p.initX
+      const dy = p.body.position.y - p.initY
+      p.cloneEl.style.transform = `translate(${dx}px,${dy}px) rotate(${p.body.angle}rad)`
+    }
+    rafId = requestAnimationFrame(tick)
+  }
+  rafId = requestAnimationFrame(tick)
+
+  // Dispatch rows top→bottom, randomized within each row
+  let delay = 0
+  for (const row of ROWS) {
+    const shuffled = [...row].sort(() => Math.random() - 0.5)
+    shuffled.forEach((id, i) => {
+      timers.push(setTimeout(() => dropPiece(id, globeRect), delay + i * 130))
     })
+    delay += shuffled.length * 130 + 220
+  }
+}
 
-    globeRef.value.style.opacity = '0'
+function dropPiece(id: string, globeRect: DOMRect) {
+  if (!svgEl || !overlay || !engine) return
+  const groupEl = svgEl.querySelector(`[id="${id}"]`) as SVGGElement | null
+  if (!groupEl) return
 
-    // Land piece bottom at viewport bottom (subtract piece height + margin)
-    const fallDistance = window.innerHeight - globeRect.top - globeRect.height - 20
-    const tween = gsap.to(clones, {
-      y: fallDistance,
-      x: () => gsap.utils.random(-40, 40),
-      rotation: () => gsap.utils.random(-45, 45),
-      ease: 'power2.in',
-      duration: () => gsap.utils.random(0.7, 1.3),
-      stagger: { each: 0.07, from: 'random' },
-    })
-    tweens.push(tween)
-  }, 1000)
+  const bbox = groupEl.getBBox()
+  if (bbox.width === 0 || bbox.height === 0) return
+
+  const scaleX = globeRect.width / 100
+  const scaleY = globeRect.height / 100
+
+  // Piece center in SVG user-units → screen coords
+  const svgCx = bbox.x + bbox.width / 2
+  const svgCy = bbox.y + bbox.height / 2
+  const screenCx = globeRect.left + svgCx * scaleX
+  const screenCy = globeRect.top + svgCy * scaleY
+  const pxW = bbox.width * scaleX
+  const pxH = bbox.height * scaleY
+
+  // SVG clone covering globe bounds — piece renders at its natural position
+  const cloneEl = document.createElementNS('http://www.w3.org/2000/svg', 'svg') as SVGSVGElement
+  cloneEl.setAttribute('viewBox', '0 0 100 100')
+  cloneEl.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
+  // transform-origin at piece center so rotation is around the piece, not the SVG corner
+  cloneEl.style.cssText = [
+    'position:fixed',
+    `top:${globeRect.top}px`,
+    `left:${globeRect.left}px`,
+    `width:${globeRect.width}px`,
+    `height:${globeRect.height}px`,
+    'overflow:visible',
+    'pointer-events:none',
+    `transform-origin:${svgCx * scaleX}px ${svgCy * scaleY}px`,
+  ].join(';')
+  cloneEl.appendChild(groupEl.cloneNode(true))
+  overlay.appendChild(cloneEl)
+
+  // Hole in globe
+  groupEl.style.visibility = 'hidden'
+
+  const body = Matter.Bodies.rectangle(screenCx, screenCy, pxW, pxH, {
+    restitution: 0.2,
+    friction: 0.6,
+    frictionAir: 0.008,
+  })
+  // Random sideways scatter + tumble
+  Matter.Body.setVelocity(body, { x: (Math.random() - 0.5) * 4, y: 0 })
+  Matter.Body.setAngularVelocity(body, (Math.random() - 0.5) * 0.4)
+  Matter.Composite.add(engine.world, body)
+
+  pieces.push({ cloneEl, body, initX: screenCx, initY: screenCy })
+}
+
+onMounted(async () => {
+  try {
+    updateMenuMaxHeight()
+    window.addEventListener('resize', updateMenuMaxHeight)
+    await initGlobe()
+    timers.push(setTimeout(startAnimation, 1000))
+  } catch (err) {
+    console.error('[wikipedia-404] mounted error:', err)
+  }
 })
 
 onUnmounted(() => {
-  clearTimeout(timer)
+  timers.forEach(clearTimeout)
+  timers = []
+  cancelAnimationFrame(rafId)
+  if (runner) Matter.Runner.stop(runner)
+  if (engine) Matter.Engine.clear(engine)
   overlay?.remove()
-  tweens.forEach(t => t.kill())
-  tweens = []
+  overlay = undefined
+  pieces = []
+  svgEl = null
   window.removeEventListener('resize', updateMenuMaxHeight)
 })
 
@@ -101,14 +191,12 @@ function onSubmit(query: string) {
 <template>
   <div class="not-found" :data-theme="theme">
     <div class="not-found__inner">
-      <div class="not-found__globe" ref="globeRef" aria-label="Wikipedia globe logo" role="img">
-        <div
-          v-for="(clipPath, i) in PIECES"
-          :key="i"
-          class="not-found__globe-piece"
-          :style="{ clipPath }"
-        />
-      </div>
+      <div
+        class="not-found__globe"
+        ref="globeRef"
+        aria-label="Wikipedia globe logo"
+        role="img"
+      />
       <h1 class="not-found__heading">This page doesn't exist.</h1>
       <div class="not-found__search" ref="searchRef">
         <SearchBar @select="onSelect" @submit="onSubmit" />
@@ -116,10 +204,6 @@ function onSubmit(query: string) {
     </div>
   </div>
 </template>
-
-<style>
-
-</style>
 
 <style scoped>
 .not-found {
@@ -151,12 +235,10 @@ function onSubmit(query: string) {
   overflow: visible;
 }
 
-.not-found__globe-piece {
-  position: absolute;
-  inset: 0;
-  background-image: url('/wikipedia-globe.svg');
-  background-size: 100% 100%;
-  background-repeat: no-repeat;
+.not-found__globe :deep(svg) {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
 .not-found__heading {
@@ -169,7 +251,7 @@ function onSubmit(query: string) {
   width: 100%;
 }
 
-@media  (min-width: 768px) {
+@media (min-width: 768px) {
   .not-found {
     padding-top: 96px;
   }
