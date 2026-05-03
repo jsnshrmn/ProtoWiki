@@ -113,7 +113,8 @@ function startAnimation() {
   const vw = window.innerWidth
   const vh = window.innerHeight
 
-  engine = Matter.Engine.create({ gravity: { x: config.gravityX, y: config.gravityY } })
+  const totalPieces = ROWS.flat().length
+  engine = Matter.Engine.create({ gravity: { x: config.gravityX, y: config.gravityY }, enableSleeping: true })
   runner = Matter.Runner.create()
 
   const ground = Matter.Bodies.rectangle(vw / 2, vh + 25, vw * 3, 50, { isStatic: true })
@@ -138,10 +139,16 @@ function startAnimation() {
   document.body.appendChild(overlay)
 
   function tick() {
+    let allSettled = pieces.length === totalPieces
     for (const p of pieces) {
       const dx = p.body.position.x - p.initX
       const dy = p.body.position.y - p.initY
       p.cloneEl.style.transform = `translate(${dx}px,${dy}px) rotate(${p.body.angle}rad)`
+      if (allSettled && !p.body.isSleeping) allSettled = false
+    }
+    if (allSettled) {
+      if (runner) Matter.Runner.stop(runner)
+      return
     }
     rafId = requestAnimationFrame(tick)
   }
