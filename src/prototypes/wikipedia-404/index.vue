@@ -76,7 +76,8 @@ function updateMenuMaxHeight() {
 
 async function initGlobe() {
   if (!globeRef.value) return
-  const res = await fetch('/wikipedia-globe-pieces.svg')
+  const res = await fetch(`${import.meta.env.BASE_URL}wikipedia-globe-pieces.svg`)
+  if (!res.ok) throw new Error(`SVG fetch failed: ${res.status}`)
   const raw = await res.text()
   if (!globeRef.value) return
   const cleaned = raw
