@@ -29,18 +29,18 @@ const ROWS: string[][] = [
 // All tuneable variables in one place
 const config = reactive({
   // Physics — gravity updates live; others apply on restart
-  gravityY:    2,
+  gravityY:    6,
   gravityX:    0,
   restitution: 0.2,
-  friction:    0.6,
-  frictionAir: 0.008,
+  friction:    1,
+  frictionAir: 0.050,
   // Timing
-  staggerMs:   130,   // ms between pieces within a row
-  rowGapMs:    220,   // ms gap added after each row
-  speedupRate: 0.18,  // fraction faster per row (0 = uniform, 0.18 = row 6 is ~3× faster)
+  staggerMs:   40,   // ms between pieces within a row
+  rowGapMs:    40,   // ms gap added after each row
+  speedupRate: 0.05,  // fraction faster per row (0 = uniform, 0.18 = row 6 is ~3× faster)
   // Initial motion
-  velocityBase: 4,    // peak horizontal velocity (px/step)
-  angularBase:  0.4,  // peak angular velocity (rad/step)
+  velocityBase: 0,    // peak horizontal velocity (px/step)
+  angularBase:  0,  // peak angular velocity (rad/step)
 })
 
 // Apply gravity changes live
@@ -135,7 +135,7 @@ function startAnimation() {
   }
 
   overlay = document.createElement('div')
-  overlay.style.cssText = 'position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:10'
+  overlay.style.cssText = 'position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:0'
   document.body.appendChild(overlay)
 
   function tick() {
@@ -173,6 +173,27 @@ function startAnimation() {
   })
 }
 
+// Sample points along SVG path outlines → screen coordinates
+function sampleVertices(
+  groupEl: SVGGElement,
+  globeRect: DOMRect,
+  scaleX: number,
+  scaleY: number,
+): Matter.Vector[] {
+  const paths = groupEl.querySelectorAll<SVGPathElement>('path')
+  const pts: Matter.Vector[] = []
+  const PER_PATH = 28
+  paths.forEach(path => {
+    const len = path.getTotalLength()
+    if (len < 1) return
+    for (let i = 0; i < PER_PATH; i++) {
+      const p = path.getPointAtLength((i / PER_PATH) * len)
+      pts.push({ x: globeRect.left + p.x * scaleX, y: globeRect.top + p.y * scaleY })
+    }
+  })
+  return pts
+}
+
 function dropPiece(id: string, globeRect: DOMRect, velocityMult = 1) {
   if (!svgEl || !overlay || !engine) return
   const groupEl = svgEl.querySelector(`[id="${id}"]`) as SVGGElement | null
@@ -187,8 +208,31 @@ function dropPiece(id: string, globeRect: DOMRect, velocityMult = 1) {
   const svgCy  = bbox.y + bbox.height / 2
   const screenCx = globeRect.left + svgCx * scaleX
   const screenCy = globeRect.top  + svgCy * scaleY
-  const pxW = bbox.width  * scaleX
-  const pxH = bbox.height * scaleY
+
+  // Sample actual piece outline → use as physics shape
+  const verts = sampleVertices(groupEl, globeRect, scaleX, scaleY)
+  const bodyOpts = { restitution: config.restitution, friction: config.friction, frictionAir: config.frictionAir }
+
+  let body: Matter.Body
+  if (verts.length >= 3) {
+    // Use convex hull of sampled path points as physics shape.
+    // Body.create bypasses fromVertices (avoids poly-decomp warnings for concave inputs).
+    const hull = Matter.Vertices.hull(verts)
+    const cx = hull.reduce((s, v) => s + v.x, 0) / hull.length
+    const cy = hull.reduce((s, v) => s + v.y, 0) / hull.length
+    body = Matter.Body.create({
+      label: 'Piece Body',
+      position: { x: cx, y: cy },
+      vertices: hull.map(v => ({ x: v.x - cx, y: v.y - cy })),
+      ...bodyOpts,
+    })
+  } else {
+    body = Matter.Bodies.rectangle(screenCx, screenCy, bbox.width * scaleX, bbox.height * scaleY, bodyOpts)
+  }
+
+  // Use actual body centroid (fromVertices may shift it slightly from the sampled centroid)
+  const initX = body.position.x
+  const initY = body.position.y
 
   const cloneEl = document.createElementNS('http://www.w3.org/2000/svg', 'svg') as SVGSVGElement
   cloneEl.setAttribute('viewBox', '0 0 100 100')
@@ -201,17 +245,13 @@ function dropPiece(id: string, globeRect: DOMRect, velocityMult = 1) {
     `height:${globeRect.height}px`,
     'overflow:visible',
     'pointer-events:none',
-    `transform-origin:${svgCx * scaleX}px ${svgCy * scaleY}px`,
+    // Rotate around the physics centroid, not the SVG bbox center
+    `transform-origin:${initX - globeRect.left}px ${initY - globeRect.top}px`,
   ].join(';')
   cloneEl.appendChild(groupEl.cloneNode(true))
   overlay.appendChild(cloneEl)
   groupEl.style.visibility = 'hidden'
 
-  const body = Matter.Bodies.rectangle(screenCx, screenCy, pxW, pxH, {
-    restitution: config.restitution,
-    friction:    config.friction,
-    frictionAir: config.frictionAir,
-  })
   Matter.Body.setVelocity(body, {
     x: (Math.random() - 0.5) * config.velocityBase * velocityMult,
     y: 0,
@@ -219,7 +259,7 @@ function dropPiece(id: string, globeRect: DOMRect, velocityMult = 1) {
   Matter.Body.setAngularVelocity(body, (Math.random() - 0.5) * config.angularBase * velocityMult)
   Matter.Composite.add(engine.world, body)
 
-  pieces.push({ cloneEl, body, initX: screenCx, initY: screenCy })
+  pieces.push({ cloneEl, body, initX, initY })
 }
 
 function restart() {
