@@ -13,6 +13,7 @@
         <CdxIcon :icon="cdxIconClose" />
       </CdxButton>
     </header>
+    <p class="edit-view__suggestion-count">4 edit suggestions</p>
     <div class="edit-view__body">
       <div class="edit-view__carousel">
         <div class="edit-view__card">
@@ -163,12 +164,25 @@
     display: flex;
     align-items: center;
     padding: var(--spacing-100, 16px);
+    position: relative;
   }
 
   .edit-view__title {
     flex: 1;
     margin: 0;
     font-family: var(--font-family-system-sans);
+    text-align: center;
+  }
+
+  .edit-view__header > button {
+    position: absolute;
+    right: var(--spacing-100);
+  }
+
+  .edit-view__suggestion-count {
+    text-align: center;
+    font-weight: bold;
+    color: var(--color-success);
   }
 
   .edit-view__body {
