@@ -183,6 +183,8 @@
     text-align: center;
     font-weight: bold;
     color: var(--color-success);
+    font-size: var(--font-size-small);
+    line-height: var(--line-height-small);
   }
 
   .edit-view__body {
