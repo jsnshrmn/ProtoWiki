@@ -238,7 +238,8 @@
   .card__instructions {
     flex-shrink: 0;
     padding: var(--spacing-100, 16px);
-    border-top: 1px solid var(--border-color-subtle, #c8ccd1);
+    /* border-top: 1px solid var(--border-color-subtle, #c8ccd1); */
+    background-color: var(--background-color-neutral);
   }
 
   .card__instructions-title {
