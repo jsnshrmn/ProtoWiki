@@ -20,12 +20,11 @@
             <p>
               <b>Alan Curtis Kay</b> (born May 17, 1940)<sup>[1]</sup> is an American
               <a href="#">computer scientist</a> who pioneered work on
-              <a href="#">object-oriented programming</a> and
-              <a href="#" class="card__preview-duplicate">windowing graphical user interface</a>
+              <a href="#" class="card__preview-duplicate">object-oriented programming</a> and
+              <a href="#">windowing graphical user interface</a>
               (GUI) design. At <a href="#">Xerox PARC</a> he led the design and development of
               the first modern windowed <a href="#">computer desktop</a> interface. There he also
-              led the development of the influential <a href="#">object-oriented</a>
-              <a href="#">programming language Smalltalk</a>, both personally designing most of
+              led the development of the influential <a href="#" class="card__preview-duplicate">object-oriented</a> <a href="#">programming language Smalltalk</a>, both personally designing most of
               the early versions of the language and coining the term "object-oriented."
             </p>
           </div>
