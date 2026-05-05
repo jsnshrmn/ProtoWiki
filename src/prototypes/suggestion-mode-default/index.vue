@@ -34,6 +34,10 @@
 </template>
 
 <style scoped>
+  .article-container {
+    padding: 0 var(--spacing-100);
+  }
+
   .edit-view-enter-active {
     transition: opacity 200ms ease-out;
   }
