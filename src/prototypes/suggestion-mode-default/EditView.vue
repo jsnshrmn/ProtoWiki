@@ -1,6 +1,6 @@
 <script setup lang="ts">
   import { CdxButton, CdxIcon } from '@wikimedia/codex'
-  import { cdxIconClose, cdxIconEdit, cdxIconEllipsis } from '@wikimedia/codex-icons'
+  import { cdxIconCheck, cdxIconClose, cdxIconEdit, cdxIconEllipsis, cdxIconLightbulb } from '@wikimedia/codex-icons'
 
   const emit = defineEmits<{ close: [] }>()
 </script>
@@ -18,7 +18,7 @@
         <div class="edit-view__card">
           <div class="card__preview">
             <p>
-              <b>Alan Curtis Kay</b> (born May 17, 1940)<sup>[1]</sup> is an American
+              <b>Alan Curtis Kay</b> (born May 17, 1940)<sup><a href="#">[1]</a></sup> is an American
               <a href="#">computer scientist</a> who pioneered work on
               <a href="#" class="card__preview-duplicate">object-oriented programming</a> and
               <a href="#">windowing graphical user interface</a>
@@ -43,8 +43,101 @@
             </div>
           </div>
         </div>
-        <div class="edit-view__card" />
-        <div class="edit-view__card" />
+        <div class="edit-view__card">
+          <div class="card__preview">
+            <h2 class="card__preview-heading">Early life and work</h2>
+            <p>
+              <span class="card__preview-duplicate">In an interview on education in America with
+              the Davis Group Ltd., Kay said:</span>
+            </p>
+            <blockquote class="card__preview-blockquote">
+              I had the misfortune or the fortune to learn how to read fluently starting about
+              the age of three, so I had read maybe 150 books by the time I hit first grade,
+              and I already knew the teachers were lying to me.<sup><a href="">[4]</a></sup>
+            </blockquote>
+          </div>
+          <div class="card__instructions">
+            <div class="card__instructions-header">
+              <p class="card__instructions-title">Add a citation</p>
+            </div>
+            <p class="card__instructions-description">
+              Help readers understand where this information is coming from by adding a citation.
+            </p>
+            <div class="card__actions">
+              <CdxButton>
+                <!-- <CdxIcon :icon="cdxIconCheck" /> -->
+                Add citation
+              </CdxButton>
+              <CdxButton>
+                <!-- <CdxIcon :icon="cdxIconClose" /> -->
+                No
+              </CdxButton>
+              <CdxButton weight="quiet" aria-label="More options" class="card__actions-more">
+                <CdxIcon :icon="cdxIconEllipsis" />
+              </CdxButton>
+            </div>
+          </div>
+        </div>
+        <div class="edit-view__card">
+          <div class="card__preview">
+            <p>
+              <span class="card__preview-duplicate">Originally from Springfield, Massachusetts,
+              Kay's family relocated several times due to his father's career in physiology before
+              ultimately settling in the New York metropolitan area.</span>
+            </p>
+          </div>
+          <div class="card__instructions">
+            <div class="card__instructions-header">
+              <!-- <CdxIcon :icon="cdxIconLightbulb" class="card__instructions-icon" /> -->
+              <p class="card__instructions-title">Add a citation</p>
+            </div>
+            <p class="card__instructions-description">
+              Help readers understand where this information is coming from by adding a citation.
+            </p>
+            <div class="card__actions">
+              <CdxButton>
+                <!-- <CdxIcon :icon="cdxIconCheck" /> -->
+                Add citation
+              </CdxButton>
+              <CdxButton>
+                <!-- <CdxIcon :icon="cdxIconClose" /> -->
+                No
+              </CdxButton>
+              <CdxButton weight="quiet" aria-label="More options" class="card__actions-more">
+                <CdxIcon :icon="cdxIconEllipsis" />
+              </CdxButton>
+            </div>
+          </div>
+        </div>
+        <div class="edit-view__card">
+          <div class="card__preview">
+            <p>
+              Kay said:
+            </p>
+            <blockquote class="card__preview-blockquote">
+              <span class="card__preview-duplicate">I'm sorry that I long ago coined the term
+              "objects" for this topic because it gets many people to focus on the lesser idea.
+              The big idea is "<a href="#">messaging</a>".<sup><a href="">[9]</a></sup></span>
+            </blockquote>
+          </div>
+          <div class="card__instructions">
+            <div class="card__instructions-header">
+              <p class="card__instructions-title">Potential AI-generated content</p>
+            </div>
+            <p class="card__instructions-description">
+              This text may include <a href="#">AI-generated content</a>. Help readers trust the
+              article by removing any AI content or rewriting any inaccurate, unverifiable, or
+              unencyclopedic information.
+            </p>
+            <div class="card__actions">
+              <CdxButton>Edit</CdxButton>
+              <CdxButton>Dismiss</CdxButton>
+              <CdxButton weight="quiet" aria-label="More options" class="card__actions-more">
+                <CdxIcon :icon="cdxIconEllipsis" />
+              </CdxButton>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
     <footer class="edit-view__footer">
@@ -157,6 +250,35 @@
 
   .card__actions-more {
     margin-inline-start: auto;
+  }
+
+  .card__preview-heading {
+    font-size: 1.5rem;
+    border-bottom: 1px solid var(--border-color-subtle, #c8ccd1);
+    padding-bottom: var(--spacing-75, 6px);
+    margin: 0 0 var(--spacing-100, 16px);
+  }
+
+  .card__preview-blockquote {
+    border-left: 3px solid var(--border-color-base, #a2a9b1);
+    margin: var(--spacing-100, 16px) 0 0 var(--spacing-150, 24px);
+    padding-left: var(--spacing-150, 24px);
+  }
+
+  .card__instructions-header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-75, 6px);
+    margin-bottom: var(--spacing-75, 6px);
+  }
+
+  .card__instructions-header .card__instructions-title {
+    margin: 0;
+  }
+
+  .card__instructions-icon {
+    color: var(--color-progressive, #3366cc);
+    flex-shrink: 0;
   }
 
   .edit-view__footer {
