@@ -16,9 +16,9 @@
   const editViewOpen = ref(false)
   const containerRef = ref<HTMLElement | null>(null)
 
-  const hatnoteMode = new URLSearchParams(window.location.search).get('hatnotes')
-  const showHatnotes = hatnoteMode === '1'
-  const showHatnoteToast = hatnoteMode === '2'
+  const params = new URLSearchParams(window.location.search)
+  const showHatnotes = params.get('hatnotes') === '1'
+  const showHatnoteToast = params.get('toast') === '1'
 
   const HATNOTE_INJECTIONS: { selector: string; text: string }[] = [
     { selector: '#mwFw', text: '[<i>remove duplicate link?</i>]' },
