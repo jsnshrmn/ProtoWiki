@@ -169,22 +169,47 @@
     return sib ?? null
   }
 
-  function buildCitationCard(block: Element): CardData | null {
-    let previewHTML = ''
+  function wrapAllContent(el: Element): void {
+    const wrapper = document.createElement('span')
+    wrapper.className = 'card__preview-duplicate'
+    while (el.firstChild) wrapper.appendChild(el.firstChild)
+    el.appendChild(wrapper)
+  }
 
+  function findInlineTarget(el: Element, blockRoot: Element): Element {
+    if (el.tagName === 'A') return el
+    const sup = el.closest('sup')
+    if (sup && sup !== blockRoot && blockRoot.contains(sup)) return sup
+    const inline = el.closest('a, b, strong, em, i')
+    if (inline && inline !== blockRoot && blockRoot.contains(inline)) return inline
+    return el
+  }
+
+  function buildCitationCard(el: Element, block: Element): CardData | null {
+    const blockClone = block.cloneNode(true) as Element
+
+    if (el === block) {
+      wrapAllContent(blockClone)
+    } else {
+      // selector is a descendant — highlight the specific inline element
+      el.setAttribute('data-highlight-target', '1')
+      const targetInClone = blockClone.querySelector('[data-highlight-target]') as Element | null
+      el.removeAttribute('data-highlight-target')
+      if (targetInClone) {
+        targetInClone.removeAttribute('data-highlight-target')
+        findInlineTarget(targetInClone, blockClone).classList.add('card__preview-duplicate')
+      }
+    }
+
+    let previewHTML = ''
     if (block.tagName === 'BLOCKQUOTE') {
-      const clone = block.cloneNode(true) as Element
-      clone.classList.add('card__preview-duplicate')
       const prev = prevMeaningfulSibling(block)
       if (prev?.tagName === 'P' && (prev.textContent?.length ?? 0) < 200) {
-        previewHTML = cleanClone(prev.cloneNode(true) as Element).outerHTML + cleanClone(clone).outerHTML
-      } else {
-        previewHTML = cleanClone(clone).outerHTML
+        previewHTML = cleanClone(prev.cloneNode(true) as Element).outerHTML
       }
+      previewHTML += cleanClone(blockClone).outerHTML
     } else {
-      const clone = block.cloneNode(true) as Element
-      clone.classList.add('card__preview-duplicate')
-      previewHTML = cleanClone(clone).outerHTML
+      previewHTML = cleanClone(blockClone).outerHTML
       const next = nextMeaningfulSibling(block)
       if (next?.tagName === 'BLOCKQUOTE') {
         previewHTML += cleanClone(next.cloneNode(true) as Element).outerHTML
@@ -194,23 +219,31 @@
     return { type: 'add-citation', previewHTML }
   }
 
-  function buildAiCard(block: Element): CardData | null {
-    let previewHTML = ''
+  function buildAiCard(el: Element, block: Element): CardData | null {
+    const blockClone = block.cloneNode(true) as Element
 
+    if (el === block) {
+      wrapAllContent(blockClone)
+    } else {
+      el.setAttribute('data-highlight-target', '1')
+      const targetInClone = blockClone.querySelector('[data-highlight-target]') as Element | null
+      el.removeAttribute('data-highlight-target')
+      if (targetInClone) {
+        targetInClone.removeAttribute('data-highlight-target')
+        findInlineTarget(targetInClone, blockClone).classList.add('card__preview-duplicate')
+      } else {
+        wrapAllContent(blockClone)
+      }
+    }
+
+    let previewHTML = ''
     if (block.tagName === 'BLOCKQUOTE') {
-      const clone = block.cloneNode(true) as Element
-      clone.classList.add('card__preview-duplicate')
       const prev = prevMeaningfulSibling(block)
       if (prev?.tagName === 'P' && (prev.textContent?.length ?? 0) < 200) {
-        previewHTML = cleanClone(prev.cloneNode(true) as Element).outerHTML + cleanClone(clone).outerHTML
-      } else {
-        previewHTML = cleanClone(clone).outerHTML
+        previewHTML = cleanClone(prev.cloneNode(true) as Element).outerHTML
       }
-    } else {
-      const clone = block.cloneNode(true) as Element
-      clone.classList.add('card__preview-duplicate')
-      previewHTML = cleanClone(clone).outerHTML
     }
+    previewHTML += cleanClone(blockClone).outerHTML
 
     return { type: 'ai-content', previewHTML }
   }
@@ -235,8 +268,8 @@
       if (!block) return []
 
       const card = type === 'add-citation'
-        ? buildCitationCard(block)
-        : buildAiCard(block)
+        ? buildCitationCard(el, block)
+        : buildAiCard(el, block)
 
       return card ? [card] : []
     })
