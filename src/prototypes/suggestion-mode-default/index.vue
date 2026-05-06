@@ -1,5 +1,5 @@
 <script setup lang="ts">
-  import { ref } from 'vue'
+  import { ref, onMounted, onUnmounted } from 'vue'
 
   definePage({
     meta: {
@@ -13,6 +13,48 @@
   import EditView from './EditView.vue'
 
   const editViewOpen = ref(false)
+  const containerRef = ref<HTMLElement | null>(null)
+
+  const showHatnotes = new URLSearchParams(window.location.search).get('hatnotes') === '1'
+
+  const HATNOTE_INJECTIONS: { selector: string; text: string }[] = [
+    { selector: '#mwFw', text: '[remove duplicate link?]' },
+  ]
+
+  function injectHatnotes(root: Element) {
+    for (const { selector, text } of HATNOTE_INJECTIONS) {
+      const el = root.querySelector(selector)
+      if (!el || el.parentElement?.classList.contains('protowiki-hatnote-group')) continue
+      const wrapper = document.createElement('span')
+      wrapper.className = 'protowiki-hatnote-group'
+      el.parentNode!.insertBefore(wrapper, el)
+      wrapper.appendChild(el)
+      const sup = document.createElement('sup')
+      sup.className = 'protowiki-hatnote'
+      sup.textContent = text
+      wrapper.appendChild(sup)
+    }
+  }
+
+  let observer: MutationObserver | null = null
+
+  onMounted(() => {
+    if (!showHatnotes || !containerRef.value) return
+    observer = new MutationObserver(() => {
+      const root = containerRef.value?.querySelector('.mw-parser-output')
+      if (root && root.children.length > 0) {
+        injectHatnotes(root)
+        observer?.disconnect()
+        observer = null
+      }
+    })
+    observer.observe(containerRef.value, { childList: true, subtree: true })
+  })
+
+  onUnmounted(() => {
+    observer?.disconnect()
+    observer = null
+  })
 
   function onArticleClick(e: MouseEvent) {
     const target = e.target as HTMLElement
@@ -24,7 +66,7 @@
 
 <template>
   <ChromeWrapper>
-    <div class="article-container" @click="onArticleClick">
+    <div ref="containerRef" class="article-container" @click="onArticleClick">
       <Article title="Alan Kay" />
     </div>
   </ChromeWrapper>
