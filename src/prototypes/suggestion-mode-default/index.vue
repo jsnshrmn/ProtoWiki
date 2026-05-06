@@ -26,6 +26,14 @@
     { selector: '#mwPQ', text: '[<i>add a citation?</i>]' },
     { selector: '#mwbA', text: '[<i>add a citation?</i>]' },
     { selector: '#mwfA', text: '[<i>potential AI-generated content?</i>]' },
+    { selector: '#mwnQ', text: '[<i>add a citation?</i>]' },
+    { selector: '#mwrw', text: '[<i>add a citation?</i>]' },
+    { selector: '#mwyQ', text: '[<i>add a citation?</i>]' },
+    { selector: '#mw0A', text: '[<i>add a citation?</i>]' },
+    { selector: '#mw5A', text: '[<i>add a citation?</i>]' },
+    { selector: '#mw7A', text: '[<i>add a citation?</i>]' },
+    { selector: '#mw7w', text: '[<i>add a citation?</i>]' },
+    { selector: '#mwAVY', text: '[<i>add a citation?</i>]' },
   ]
 
   const BLOCK_TAGS = new Set(['P', 'DIV', 'SECTION', 'BLOCKQUOTE', 'LI'])
