@@ -152,6 +152,10 @@
     cursor: pointer;
   }
 
+  :deep(sup.mw-ref > a) {
+    text-decoration: none;
+  }
+
   :deep(.protowiki-hatnote__bracket) {
     color: var(--color-base);
   }
