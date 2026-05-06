@@ -87,9 +87,10 @@
   const visibleCount = ref(0)
   let observer: MutationObserver | null = null
   let intersectionObserver: IntersectionObserver | null = null
+  let observedTargets: Element[] = []
 
   function startViewportObserver(root: Element) {
-    const targets = HATNOTE_INJECTIONS
+    observedTargets = HATNOTE_INJECTIONS
       .map(({ selector }) => root.querySelector(selector))
       .filter(Boolean) as Element[]
 
@@ -102,7 +103,7 @@
       visibleCount.value = visible.size
     })
 
-    targets.forEach((el) => intersectionObserver!.observe(el))
+    observedTargets.forEach((el) => intersectionObserver!.observe(el))
   }
 
   function tryActivate() {
@@ -112,7 +113,8 @@
     if (!hasTarget) return false
     if (showHatnotes) injectHatnotes(root)
     if (showHatnoteToast) {
-      // Restart with fresh element refs each time article re-renders
+      // Only restart if the observed nodes themselves are stale (detached by v-html re-render)
+      if (intersectionObserver && observedTargets[0]?.isConnected) return true
       intersectionObserver?.disconnect()
       visibleCount.value = 0
       startViewportObserver(root)
