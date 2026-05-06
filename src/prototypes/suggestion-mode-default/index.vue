@@ -108,7 +108,8 @@
     opacity: 0;
   }
 
-  :deep(.protowiki-hatnote-group) {
+  :deep(.protowiki-hatnote-group),
+  :deep(.protowiki-hatnote-group a) {
     text-decoration: underline;
     text-decoration-style: dashed;
     text-decoration-color: var(--border-color-subtle);
