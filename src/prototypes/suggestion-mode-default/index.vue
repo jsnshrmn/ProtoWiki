@@ -8,7 +8,8 @@
     },
   })
 
-  import { CdxButton, CdxMessage } from '@wikimedia/codex'
+  import { CdxButton, CdxIcon, CdxMessage } from '@wikimedia/codex'
+  import { cdxIconUserAvatarOutline } from '@wikimedia/codex-icons'
   import Article from '@/components/Article.vue'
   import ChromeWrapper from '@/components/ChromeWrapper.vue'
   import EditView from './EditView.vue'
@@ -151,6 +152,11 @@
 
 <template>
   <ChromeWrapper>
+    <template #mobile-actions-extra>
+      <CdxButton weight="quiet" size="large" aria-label="User menu">
+        <CdxIcon :icon="cdxIconUserAvatarOutline" />
+      </CdxButton>
+    </template>
     <div ref="containerRef" class="article-container" @click="onArticleClick">
       <Article title="Alan Kay" />
     </div>

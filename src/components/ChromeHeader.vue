@@ -163,6 +163,7 @@ const isMobile = computed(() => effectiveSkin.value === 'mobile')
           <CdxIcon :icon="cdxIconBell" />
           <span class="chrome-header__notify-badge" aria-hidden="true">1</span>
         </CdxButton>
+        <slot name="mobile-actions-extra" />
       </div>
     </nav>
   </header>

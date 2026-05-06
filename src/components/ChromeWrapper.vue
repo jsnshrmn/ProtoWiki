@@ -73,6 +73,9 @@ provide(PROTOWIKI_CHROME_THEME, effectiveTheme)
             </a>
           </slot>
         </template>
+        <template v-if="$slots['mobile-actions-extra']" #mobile-actions-extra>
+          <slot name="mobile-actions-extra" />
+        </template>
       </ChromeHeader>
     </slot>
 
