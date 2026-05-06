@@ -1,8 +1,34 @@
 <script setup lang="ts">
   import { CdxButton, CdxIcon } from '@wikimedia/codex'
-  import { cdxIconCheck, cdxIconClose, cdxIconEdit, cdxIconEllipsis, cdxIconLightbulb } from '@wikimedia/codex-icons'
+  import { cdxIconClose, cdxIconEdit, cdxIconEllipsis } from '@wikimedia/codex-icons'
+  import type { CardData } from './types'
 
+  const props = defineProps<{ cards: CardData[] }>()
   const emit = defineEmits<{ close: [] }>()
+
+  function titleFor(type: CardData['type']): string {
+    return {
+      'remove-duplicate': 'Remove duplicate link',
+      'add-citation': 'Add a citation',
+      'ai-content': 'Potential AI-generated content',
+    }[type]
+  }
+
+  function descriptionFor(type: CardData['type']): string {
+    return {
+      'remove-duplicate': 'This link appears more than once in this section. Help readers navigate more easily by removing <a href="#">repeated links</a>.',
+      'add-citation': 'Help readers understand where this information is coming from by adding a citation.',
+      'ai-content': 'This text may include <a href="#">AI-generated content</a>. Help readers trust the article by removing any AI content or rewriting any inaccurate, unverifiable, or unencyclopedic information.',
+    }[type]
+  }
+
+  function actionsFor(type: CardData['type']): { label: string }[] {
+    return {
+      'remove-duplicate': [{ label: 'Remove link' }, { label: 'Dismiss' }],
+      'add-citation': [{ label: 'Add citation' }, { label: 'No' }],
+      'ai-content': [{ label: 'Edit' }, { label: 'Dismiss' }],
+    }[type]
+  }
 </script>
 
 <template>
@@ -13,126 +39,21 @@
         <CdxIcon :icon="cdxIconClose" />
       </CdxButton>
     </header>
-    <p class="edit-view__suggestion-count">4 edit suggestions</p>
+    <p class="edit-view__suggestion-count">{{ cards.length }} edit suggestions</p>
     <div class="edit-view__body">
       <div class="edit-view__carousel">
-        <div class="edit-view__card">
-          <div class="card__preview">
-            <p>
-              <b>Alan Curtis Kay</b> (born May 17, 1940)<sup><a href="#">[1]</a></sup> is an American
-              <a href="#">computer scientist</a> who pioneered work on
-              <a href="#" class="card__preview-duplicate">object-oriented programming</a> and
-              <a href="#">windowing graphical user interface</a>
-              (GUI) design. At <a href="#">Xerox PARC</a> he led the design and development of
-              the first modern windowed <a href="#">computer desktop</a> interface. There he also
-              led the development of the influential <a href="#" class="card__preview-duplicate">object-oriented</a> <a href="#">programming language Smalltalk</a>, both personally designing most of
-              the early versions of the language and coining the term "object-oriented."
-            </p>
-          </div>
-          <div class="card__instructions">
-            <p class="card__instructions-title">Remove duplicate link</p>
-            <p class="card__instructions-description">
-              This link appears more than once in this section. Help readers navigate more easily
-              by removing <a href="#">repeated links</a>.
-            </p>
-            <div class="card__actions">
-              <CdxButton>Remove link</CdxButton>
-              <CdxButton>Dismiss</CdxButton>
-              <CdxButton weight="quiet" aria-label="More options" class="card__actions-more">
-                <CdxIcon :icon="cdxIconEllipsis" />
-              </CdxButton>
-            </div>
-          </div>
-        </div>
-        <div class="edit-view__card">
-          <div class="card__preview">
-            <h2 class="card__preview-heading">Early life and work</h2>
-            <p>
-              <span class="card__preview-duplicate">In an interview on education in America with
-              the Davis Group Ltd., Kay said:</span>
-            </p>
-            <blockquote class="card__preview-blockquote">
-              I had the misfortune or the fortune to learn how to read fluently starting about
-              the age of three, so I had read maybe 150 books by the time I hit first grade,
-              and I already knew the teachers were lying to me.<sup><a href="">[4]</a></sup>
-            </blockquote>
-          </div>
+        <div v-for="(card, i) in cards" :key="i" class="edit-view__card">
+          <div class="card__preview" v-html="card.previewHTML" />
           <div class="card__instructions">
             <div class="card__instructions-header">
-              <p class="card__instructions-title">Add a citation</p>
+              <p class="card__instructions-title">{{ titleFor(card.type) }}</p>
             </div>
-            <p class="card__instructions-description">
-              Help readers understand where this information is coming from by adding a citation.
-            </p>
+            <!-- eslint-disable-next-line vue/no-v-html -->
+            <p class="card__instructions-description" v-html="descriptionFor(card.type)" />
             <div class="card__actions">
-              <CdxButton>
-                <!-- <CdxIcon :icon="cdxIconCheck" /> -->
-                Add citation
+              <CdxButton v-for="action in actionsFor(card.type)" :key="action.label">
+                {{ action.label }}
               </CdxButton>
-              <CdxButton>
-                <!-- <CdxIcon :icon="cdxIconClose" /> -->
-                No
-              </CdxButton>
-              <CdxButton weight="quiet" aria-label="More options" class="card__actions-more">
-                <CdxIcon :icon="cdxIconEllipsis" />
-              </CdxButton>
-            </div>
-          </div>
-        </div>
-        <div class="edit-view__card">
-          <div class="card__preview">
-            <p>
-              <span class="card__preview-duplicate">Originally from Springfield, Massachusetts,
-              Kay's family relocated several times due to his father's career in physiology before
-              ultimately settling in the New York metropolitan area.</span>
-            </p>
-          </div>
-          <div class="card__instructions">
-            <div class="card__instructions-header">
-              <!-- <CdxIcon :icon="cdxIconLightbulb" class="card__instructions-icon" /> -->
-              <p class="card__instructions-title">Add a citation</p>
-            </div>
-            <p class="card__instructions-description">
-              Help readers understand where this information is coming from by adding a citation.
-            </p>
-            <div class="card__actions">
-              <CdxButton>
-                <!-- <CdxIcon :icon="cdxIconCheck" /> -->
-                Add citation
-              </CdxButton>
-              <CdxButton>
-                <!-- <CdxIcon :icon="cdxIconClose" /> -->
-                No
-              </CdxButton>
-              <CdxButton weight="quiet" aria-label="More options" class="card__actions-more">
-                <CdxIcon :icon="cdxIconEllipsis" />
-              </CdxButton>
-            </div>
-          </div>
-        </div>
-        <div class="edit-view__card">
-          <div class="card__preview">
-            <p>
-              Kay said:
-            </p>
-            <blockquote class="card__preview-blockquote">
-              <span class="card__preview-duplicate">I'm sorry that I long ago coined the term
-              "objects" for this topic because it gets many people to focus on the lesser idea.
-              The big idea is "<a href="#">messaging</a>".<sup><a href="">[9]</a></sup></span>
-            </blockquote>
-          </div>
-          <div class="card__instructions">
-            <div class="card__instructions-header">
-              <p class="card__instructions-title">Potential AI-generated content</p>
-            </div>
-            <p class="card__instructions-description">
-              This text may include <a href="#">AI-generated content</a>. Help readers trust the
-              article by removing any AI content or rewriting any inaccurate, unverifiable, or
-              unencyclopedic information.
-            </p>
-            <div class="card__actions">
-              <CdxButton>Edit</CdxButton>
-              <CdxButton>Dismiss</CdxButton>
               <CdxButton weight="quiet" aria-label="More options" class="card__actions-more">
                 <CdxIcon :icon="cdxIconEllipsis" />
               </CdxButton>
@@ -228,13 +149,27 @@
     line-height: var(--line-height-medium, 1.6);
   }
 
-  .card__preview a {
+  .card__preview :deep(a) {
     color: var(--color-progressive, #3366cc);
     text-decoration: none;
   }
 
-  .card__preview-duplicate {
+  .card__preview :deep(.card__preview-duplicate) {
     background-color: var(--background-color-warning-subtle, #fef6e7);
+  }
+
+  .card__preview :deep(blockquote) {
+    border-left: 3px solid var(--border-color-base, #a2a9b1);
+    margin: var(--spacing-100, 16px) 0 0 var(--spacing-150, 24px);
+    padding-left: var(--spacing-150, 24px);
+  }
+
+  .card__preview :deep(h2),
+  .card__preview :deep(h3) {
+    font-size: 1.5rem;
+    border-bottom: 1px solid var(--border-color-subtle, #c8ccd1);
+    padding-bottom: var(--spacing-75, 6px);
+    margin: 0 0 var(--spacing-100, 16px);
   }
 
   .card__instructions {
@@ -254,7 +189,7 @@
     color: var(--color-base, #202122);
   }
 
-  .card__instructions-description a {
+  .card__instructions-description :deep(a) {
     color: var(--color-progressive, #3366cc);
     text-decoration: none;
   }
@@ -269,19 +204,6 @@
     margin-inline-start: auto;
   }
 
-  .card__preview-heading {
-    font-size: 1.5rem;
-    border-bottom: 1px solid var(--border-color-subtle, #c8ccd1);
-    padding-bottom: var(--spacing-75, 6px);
-    margin: 0 0 var(--spacing-100, 16px);
-  }
-
-  .card__preview-blockquote {
-    border-left: 3px solid var(--border-color-base, #a2a9b1);
-    margin: var(--spacing-100, 16px) 0 0 var(--spacing-150, 24px);
-    padding-left: var(--spacing-150, 24px);
-  }
-
   .card__instructions-header {
     display: flex;
     align-items: center;
@@ -291,11 +213,6 @@
 
   .card__instructions-header .card__instructions-title {
     margin: 0;
-  }
-
-  .card__instructions-icon {
-    color: var(--color-progressive, #3366cc);
-    flex-shrink: 0;
   }
 
   .edit-view__footer {

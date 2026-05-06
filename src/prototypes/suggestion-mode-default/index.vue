@@ -13,6 +13,7 @@
   import Article from '@/components/Article.vue'
   import ChromeWrapper from '@/components/ChromeWrapper.vue'
   import EditView from './EditView.vue'
+  import type { CardData } from './types'
 
   const editViewOpen = ref(false)
   const containerRef = ref<HTMLElement | null>(null)
@@ -41,6 +42,9 @@
   ]
 
   const BLOCK_TAGS = new Set(['P', 'DIV', 'SECTION', 'BLOCKQUOTE', 'LI'])
+  const PREVIEW_BLOCK_TAGS = new Set([...BLOCK_TAGS, 'H1', 'H2', 'H3', 'H4', 'H5', 'H6'])
+
+  // --- hatnote injection helpers ---
 
   function collapsedHTML(label: string): string {
     return `[<i>${label}</i>]`
@@ -84,7 +88,164 @@
     }
   }
 
+  // --- card building helpers ---
+
+  function getParentBlock(el: Element): Element | null {
+    let current: Element | null = el
+    while (current && !PREVIEW_BLOCK_TAGS.has(current.tagName)) {
+      current = current.parentElement
+    }
+    return current
+  }
+
+  function cleanClone(el: Element): Element {
+    const STRIP = ['id', 'about', 'data-mw', 'typeof', 'rel']
+    ;[el, ...Array.from(el.querySelectorAll('*'))].forEach(node => {
+      STRIP.forEach(attr => node.removeAttribute(attr))
+    })
+    el.querySelectorAll('a[href]').forEach(a => a.setAttribute('href', '#'))
+    el.querySelectorAll('.protowiki-hatnote').forEach(n => n.remove())
+    return el
+  }
+
+  // Tighter block set for duplicate link: skip large containers like DIV/SECTION
+  const INLINE_BLOCK_TAGS = new Set(['P', 'BLOCKQUOTE', 'LI', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6'])
+
+  function getNearestInlineBlock(el: Element): Element | null {
+    let current: Element | null = el
+    while (current && !INLINE_BLOCK_TAGS.has(current.tagName)) {
+      current = current.parentElement
+    }
+    return current
+  }
+
+  function buildDuplicateCard(root: Element, el: Element): CardData | null {
+    const targetHref = el.getAttribute('href')
+    if (!targetHref) return null
+
+    // Anchor to the flagged element's nearest inline block (P, BLOCKQUOTE, LI…)
+    const primaryBlock = getNearestInlineBlock(el)
+    if (!primaryBlock) return null
+
+    // Find another occurrence in a different inline block
+    let secondaryBlock: Element | null = null
+    for (const link of root.querySelectorAll<HTMLAnchorElement>(`a[href="${targetHref}"]`)) {
+      const block = getNearestInlineBlock(link)
+      if (block && block !== primaryBlock) {
+        secondaryBlock = block
+        break
+      }
+    }
+
+    // Show blocks in document order
+    let blocks: Element[]
+    if (secondaryBlock) {
+      const primFirst = !!(primaryBlock.compareDocumentPosition(secondaryBlock) & Node.DOCUMENT_POSITION_FOLLOWING)
+      blocks = primFirst ? [primaryBlock, secondaryBlock] : [secondaryBlock, primaryBlock]
+    } else {
+      blocks = [primaryBlock]
+    }
+
+    const previewHTML = blocks.map(block => {
+      const clone = block.cloneNode(true) as Element
+      clone.querySelectorAll<HTMLAnchorElement>(`a[href="${targetHref}"]`).forEach(a => {
+        a.classList.add('card__preview-duplicate')
+      })
+      return cleanClone(clone).outerHTML
+    }).join('')
+
+    return { type: 'remove-duplicate', previewHTML }
+  }
+
+  function nextMeaningfulSibling(el: Element): Element | null {
+    let sib = el.nextElementSibling
+    while (sib?.tagName === 'STYLE') sib = sib.nextElementSibling
+    return sib ?? null
+  }
+
+  function prevMeaningfulSibling(el: Element): Element | null {
+    let sib = el.previousElementSibling
+    while (sib?.tagName === 'STYLE') sib = sib.previousElementSibling
+    return sib ?? null
+  }
+
+  function buildCitationCard(block: Element): CardData | null {
+    let previewHTML = ''
+
+    if (block.tagName === 'BLOCKQUOTE') {
+      const clone = block.cloneNode(true) as Element
+      clone.classList.add('card__preview-duplicate')
+      const prev = prevMeaningfulSibling(block)
+      if (prev?.tagName === 'P' && (prev.textContent?.length ?? 0) < 200) {
+        previewHTML = cleanClone(prev.cloneNode(true) as Element).outerHTML + cleanClone(clone).outerHTML
+      } else {
+        previewHTML = cleanClone(clone).outerHTML
+      }
+    } else {
+      const clone = block.cloneNode(true) as Element
+      clone.classList.add('card__preview-duplicate')
+      previewHTML = cleanClone(clone).outerHTML
+      const next = nextMeaningfulSibling(block)
+      if (next?.tagName === 'BLOCKQUOTE') {
+        previewHTML += cleanClone(next.cloneNode(true) as Element).outerHTML
+      }
+    }
+
+    return { type: 'add-citation', previewHTML }
+  }
+
+  function buildAiCard(block: Element): CardData | null {
+    let previewHTML = ''
+
+    if (block.tagName === 'BLOCKQUOTE') {
+      const clone = block.cloneNode(true) as Element
+      clone.classList.add('card__preview-duplicate')
+      const prev = prevMeaningfulSibling(block)
+      if (prev?.tagName === 'P' && (prev.textContent?.length ?? 0) < 200) {
+        previewHTML = cleanClone(prev.cloneNode(true) as Element).outerHTML + cleanClone(clone).outerHTML
+      } else {
+        previewHTML = cleanClone(clone).outerHTML
+      }
+    } else {
+      const clone = block.cloneNode(true) as Element
+      clone.classList.add('card__preview-duplicate')
+      previewHTML = cleanClone(clone).outerHTML
+    }
+
+    return { type: 'ai-content', previewHTML }
+  }
+
+  function buildCards(root: Element): CardData[] {
+    return HATNOTE_INJECTIONS.flatMap(({ selector, text }): CardData[] => {
+      const el = root.querySelector(selector)
+      if (!el) return []
+
+      const type: CardData['type'] = text.includes('duplicate')
+        ? 'remove-duplicate'
+        : text.toLowerCase().includes('ai-generated')
+          ? 'ai-content'
+          : 'add-citation'
+
+      if (type === 'remove-duplicate') {
+        const card = buildDuplicateCard(root, el)
+        return card ? [card] : []
+      }
+
+      const block = getParentBlock(el)
+      if (!block) return []
+
+      const card = type === 'add-citation'
+        ? buildCitationCard(block)
+        : buildAiCard(block)
+
+      return card ? [card] : []
+    })
+  }
+
+  // --- viewport/toast observer ---
+
   const visibleCount = ref(0)
+  const cards = ref<CardData[]>([])
   let observer: MutationObserver | null = null
   let intersectionObserver: IntersectionObserver | null = null
   let observedTargets: Element[] = []
@@ -111,6 +272,9 @@
     if (!root || root.children.length === 0) return false
     const hasTarget = HATNOTE_INJECTIONS.some(({ selector }) => root.querySelector(selector))
     if (!hasTarget) return false
+
+    cards.value = buildCards(root)
+
     if (showHatnotes) injectHatnotes(root)
     if (showHatnoteToast) {
       // Only restart if the observed nodes themselves are stale (detached by v-html re-render)
@@ -123,13 +287,11 @@
   }
 
   onMounted(() => {
-    if (!showHatnotes && !showHatnoteToast) return
     if (!containerRef.value) return
     tryActivate()
     observer = new MutationObserver(() => {
       const activated = tryActivate()
-      // Mode 1: disconnect once injected; mode 2: keep alive for re-renders
-      if (activated && showHatnotes && !showHatnoteToast) {
+      if (activated && !showHatnoteToast) {
         observer?.disconnect()
         observer = null
       }
@@ -164,7 +326,7 @@
     </div>
   </ChromeWrapper>
   <Transition name="edit-view">
-    <EditView v-if="editViewOpen" @close="editViewOpen = false" />
+    <EditView v-if="editViewOpen" :cards="cards" @close="editViewOpen = false" />
   </Transition>
   <Transition name="hatnote-toast">
     <div v-if="showHatnoteToast && visibleCount > 0" class="protowiki-hatnote-toast">
