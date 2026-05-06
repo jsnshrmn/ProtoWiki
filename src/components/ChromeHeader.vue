@@ -443,7 +443,7 @@ const isMobile = computed(() => effectiveSkin.value === 'mobile')
 }
 
 /* Let Codex `size="large"` icon buttons keep default min sizes — avoid squishing. */
-.chrome-header[data-skin='mobile'] .chrome-header__mobile-actions .cdx-button {
+.chrome-header[data-skin='mobile'] .chrome-header__mobile-actions :deep(.cdx-button) {
   flex-shrink: 0;
   color: var(--color-subtle, #54595d);
 }
