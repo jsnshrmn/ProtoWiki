@@ -18,14 +18,14 @@
   const showHatnotes = new URLSearchParams(window.location.search).get('hatnotes') === '1'
 
   const HATNOTE_INJECTIONS: { selector: string; text: string }[] = [
-    { selector: '#mwFw', text: '[remove duplicate link?]' },
-    { selector: '#mwKA', text: '[add a citation?]' },
-    { selector: '#mwLw', text: '[add a citation?]' },
-    { selector: '#mwMw', text: '[add a citation?]' },
-    { selector: '#mwOA', text: '[add a citation?]' },
-    { selector: '#mwPQ', text: '[add a citation?]' },
-    { selector: '#mwbA', text: '[add a citation?]' },
-    { selector: '#mwfA', text: '[potential AI-generated content?]' },
+    { selector: '#mwFw', text: '[<i>remove duplicate link?</i>]' },
+    { selector: '#mwKA', text: '[<i>add a citation?</i>]' },
+    { selector: '#mwLw', text: '[<i>add a citation?</i>]' },
+    { selector: '#mwMw', text: '[<i>add a citation?</i>]' },
+    { selector: '#mwOA', text: '[<i>add a citation?</i>]' },
+    { selector: '#mwPQ', text: '[<i>add a citation?</i>]' },
+    { selector: '#mwbA', text: '[<i>add a citation?</i>]' },
+    { selector: '#mwfA', text: '[<i>potential AI-generated content?</i>]' },
   ]
 
   const BLOCK_TAGS = new Set(['P', 'DIV', 'SECTION', 'BLOCKQUOTE', 'LI'])
@@ -36,7 +36,7 @@
       if (!el || el.classList.contains('protowiki-hatnote-group')) continue
       const sup = document.createElement('sup')
       sup.className = 'protowiki-hatnote'
-      sup.textContent = text
+      sup.innerHTML = text
       if (BLOCK_TAGS.has(el.tagName)) {
         el.classList.add('protowiki-hatnote-group')
         el.appendChild(sup)
@@ -108,7 +108,16 @@
     opacity: 0;
   }
 
-  .protowiki-hatnote {
-    font-family: var(--font-family-system-sans)!important;
+  :deep(.protowiki-hatnote-group) {
+    text-decoration: underline;
+    text-decoration-style: dashed;
+    text-decoration-color: var(--border-color-subtle);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 4px;
+  }
+
+  :deep(.protowiki-hatnote) {
+    font-family: var(--font-family-system-sans);
+    color: var(--color-warning);
   }
 </style>
