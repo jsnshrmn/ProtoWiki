@@ -19,20 +19,35 @@
 
   const HATNOTE_INJECTIONS: { selector: string; text: string }[] = [
     { selector: '#mwFw', text: '[remove duplicate link?]' },
+    { selector: '#mwKA', text: '[add a citation?]' },
+    { selector: '#mwLw', text: '[add a citation?]' },
+    { selector: '#mwMw', text: '[add a citation?]' },
+    { selector: '#mwOA', text: '[add a citation?]' },
+    { selector: '#mwPQ', text: '[add a citation?]' },
+    { selector: '#mwbA', text: '[add a citation?]' },
+    { selector: '#mwfA', text: '[potential AI-generated content?]' },
   ]
+
+  const BLOCK_TAGS = new Set(['P', 'DIV', 'SECTION', 'BLOCKQUOTE', 'LI'])
 
   function injectHatnotes(root: Element) {
     for (const { selector, text } of HATNOTE_INJECTIONS) {
       const el = root.querySelector(selector)
-      if (!el || el.parentElement?.classList.contains('protowiki-hatnote-group')) continue
-      const wrapper = document.createElement('span')
-      wrapper.className = 'protowiki-hatnote-group'
-      el.parentNode!.insertBefore(wrapper, el)
-      wrapper.appendChild(el)
+      if (!el || el.classList.contains('protowiki-hatnote-group')) continue
       const sup = document.createElement('sup')
       sup.className = 'protowiki-hatnote'
       sup.textContent = text
-      wrapper.appendChild(sup)
+      if (BLOCK_TAGS.has(el.tagName)) {
+        el.classList.add('protowiki-hatnote-group')
+        el.appendChild(sup)
+      } else {
+        if (el.parentElement?.classList.contains('protowiki-hatnote-group')) continue
+        const wrapper = document.createElement('span')
+        wrapper.className = 'protowiki-hatnote-group'
+        el.parentNode!.insertBefore(wrapper, el)
+        wrapper.appendChild(el)
+        wrapper.appendChild(sup)
+      }
     }
   }
 
@@ -91,5 +106,9 @@
   .edit-view-enter-from,
   .edit-view-leave-to {
     opacity: 0;
+  }
+
+  .protowiki-hatnote {
+    font-family: var(--font-family-system-sans)!important;
   }
 </style>
