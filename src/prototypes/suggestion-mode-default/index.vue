@@ -8,6 +8,7 @@
     },
   })
 
+  import { CdxButton, CdxMessage } from '@wikimedia/codex'
   import Article from '@/components/Article.vue'
   import ChromeWrapper from '@/components/ChromeWrapper.vue'
   import EditView from './EditView.vue'
@@ -15,7 +16,9 @@
   const editViewOpen = ref(false)
   const containerRef = ref<HTMLElement | null>(null)
 
-  const showHatnotes = new URLSearchParams(window.location.search).get('hatnotes') === '1'
+  const hatnoteMode = new URLSearchParams(window.location.search).get('hatnotes')
+  const showHatnotes = hatnoteMode === '1'
+  const showHatnoteToast = hatnoteMode === '2'
 
   const HATNOTE_INJECTIONS: { selector: string; text: string }[] = [
     { selector: '#mwFw', text: '[<i>remove duplicate link?</i>]' },
@@ -80,25 +83,62 @@
     }
   }
 
+  const visibleCount = ref(0)
   let observer: MutationObserver | null = null
+  let intersectionObserver: IntersectionObserver | null = null
+
+  function startViewportObserver(root: Element) {
+    const targets = HATNOTE_INJECTIONS
+      .map(({ selector }) => root.querySelector(selector))
+      .filter(Boolean) as Element[]
+
+    const visible = new Set<Element>()
+
+    intersectionObserver = new IntersectionObserver((entries) => {
+      entries.forEach((e) => {
+        e.isIntersecting ? visible.add(e.target) : visible.delete(e.target)
+      })
+      visibleCount.value = visible.size
+    })
+
+    targets.forEach((el) => intersectionObserver!.observe(el))
+  }
+
+  function tryActivate() {
+    const root = containerRef.value?.querySelector('.mw-parser-output')
+    if (!root || root.children.length === 0) return false
+    const hasTarget = HATNOTE_INJECTIONS.some(({ selector }) => root.querySelector(selector))
+    if (!hasTarget) return false
+    if (showHatnotes) injectHatnotes(root)
+    if (showHatnoteToast) {
+      // Restart with fresh element refs each time article re-renders
+      intersectionObserver?.disconnect()
+      visibleCount.value = 0
+      startViewportObserver(root)
+    }
+    return true
+  }
 
   onMounted(() => {
-    if (!showHatnotes || !containerRef.value) return
+    if (!showHatnotes && !showHatnoteToast) return
+    if (!containerRef.value) return
+    tryActivate()
     observer = new MutationObserver(() => {
-      const root = containerRef.value?.querySelector('.mw-parser-output')
-      if (!root || root.children.length === 0) return
-      const hasTarget = HATNOTE_INJECTIONS.some(({ selector }) => root.querySelector(selector))
-      if (!hasTarget) return
-      injectHatnotes(root)
-      observer?.disconnect()
-      observer = null
+      const activated = tryActivate()
+      // Mode 1: disconnect once injected; mode 2: keep alive for re-renders
+      if (activated && showHatnotes && !showHatnoteToast) {
+        observer?.disconnect()
+        observer = null
+      }
     })
     observer.observe(containerRef.value, { childList: true, subtree: true })
   })
 
   onUnmounted(() => {
     observer?.disconnect()
+    intersectionObserver?.disconnect()
     observer = null
+    intersectionObserver = null
   })
 
   function onArticleClick(e: MouseEvent) {
@@ -117,6 +157,16 @@
   </ChromeWrapper>
   <Transition name="edit-view">
     <EditView v-if="editViewOpen" @close="editViewOpen = false" />
+  </Transition>
+  <Transition name="hatnote-toast">
+    <div v-if="showHatnoteToast && visibleCount > 0" class="protowiki-hatnote-toast">
+      <CdxMessage type="progressive">
+        <div class="protowiki-hatnote-toast__inner">
+          <span><span class="protowiki-hatnote-toast__count">{{ visibleCount }}</span> edit suggestions in this section.</span>
+          <CdxButton action="progressive" weight="primary" size="small">Edit</CdxButton>
+        </div>
+      </CdxMessage>
+    </div>
   </Transition>
 </template>
 
@@ -172,5 +222,66 @@
 
   :deep(.protowiki-hatnote__action) {
     color: var(--color-progressive);
+  }
+
+  .protowiki-hatnote-toast {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    padding: var(--spacing-150, 24px);
+  }
+
+  .protowiki-hatnote-toast__count {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .protowiki-hatnote-toast__inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-75);
+    font-size: var(--font-size-small);
+  }
+
+  :deep(.cdx-message--progressive) {
+    background-color: var(--background-color-progressive);
+    border-color: var(--border-color-progressive);
+    color: #fff;
+  }
+
+  :deep(.cdx-message__icon--vue) {
+    display: none;
+  }
+
+  :deep(.cdx-message__content) {
+    margin-left: 0;
+  }
+
+  .hatnote-toast-enter-active {
+    transition: transform 320ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  .hatnote-toast-leave-active {
+    transition: transform 200ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+
+  .hatnote-toast-enter-from,
+  .hatnote-toast-leave-to {
+    transform: translateY(100%);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hatnote-toast-enter-active,
+    .hatnote-toast-leave-active {
+      transition: opacity 200ms ease;
+      transform: none;
+    }
+
+    .hatnote-toast-enter-from,
+    .hatnote-toast-leave-to {
+      opacity: 0;
+    }
   }
 </style>
