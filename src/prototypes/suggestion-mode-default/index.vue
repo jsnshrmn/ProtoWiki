@@ -9,7 +9,7 @@
   })
 
   import { CdxButton, CdxIcon, CdxMessage } from '@wikimedia/codex'
-  import { cdxIconUserAvatarOutline } from '@wikimedia/codex-icons'
+  import { cdxIconExpand, cdxIconStar, cdxIconUserAvatarOutline } from '@wikimedia/codex-icons'
   import Article from '@/components/Article.vue'
   import ChromeWrapper from '@/components/ChromeWrapper.vue'
   import EditView from './EditView.vue'
@@ -17,28 +17,35 @@
 
   const editViewOpen = ref(false)
   const containerRef = ref<HTMLElement | null>(null)
+  const AI_GENERATED_CONTENT_EDIT_TYPE = 'Potential AI-generated content'
 
   const params = new URLSearchParams(window.location.search)
   const showHatnotes = params.get('hatnotes') === '1'
   const showHatnoteToast = params.get('toast') === '1'
 
-  const HATNOTE_INJECTIONS: { selector: string; text: string }[] = [
-    { selector: '#mwFw', text: '[<i>remove duplicate link?</i>]' },
-    { selector: '#mwKA', text: '[<i>add a citation?</i>]' },
-    { selector: '#mwLw', text: '[<i>add a citation?</i>]' },
-    { selector: '#mwMw', text: '[<i>add a citation?</i>]' },
-    { selector: '#mwOA', text: '[<i>add a citation?</i>]' },
-    { selector: '#mwPQ', text: '[<i>add a citation?</i>]' },
-    { selector: '#mwbA', text: '[<i>add a citation?</i>]' },
-    { selector: '#mwfA', text: '[<i>potential AI-generated content?</i>]' },
-    { selector: '#mwnQ', text: '[<i>add a citation?</i>]' },
-    { selector: '#mwrw', text: '[<i>add a citation?</i>]' },
-    { selector: '#mwyQ', text: '[<i>add a citation?</i>]' },
-    { selector: '#mw0A', text: '[<i>add a citation?</i>]' },
-    { selector: '#mw5A', text: '[<i>add a citation?</i>]' },
-    { selector: '#mw7A', text: '[<i>add a citation?</i>]' },
-    { selector: '#mw7w', text: '[<i>add a citation?</i>]' },
-    { selector: '#mwAVY', text: '[<i>add a citation?</i>]' },
+  const EDIT_TYPE_ORDER = [
+    'Add citation',
+    'Remove duplicate link',
+    'Potential AI-generated content',
+  ] as const
+
+  const HATNOTE_INJECTIONS: { selector: string; text: string; editType: (typeof EDIT_TYPE_ORDER)[number] }[] = [
+    { selector: '#mwFw', text: '[<i>remove duplicate link?</i>]', editType: 'Remove duplicate link' },
+    { selector: '#mwKA', text: '[<i>add a citation?</i>]', editType: 'Add citation' },
+    { selector: '#mwLw', text: '[<i>add a citation?</i>]', editType: 'Add citation' },
+    { selector: '#mwMw', text: '[<i>add a citation?</i>]', editType: 'Add citation' },
+    { selector: '#mwOA', text: '[<i>add a citation?</i>]', editType: 'Add citation' },
+    { selector: '#mwPQ', text: '[<i>add a citation?</i>]', editType: 'Add citation' },
+    { selector: '#mwbA', text: '[<i>add a citation?</i>]', editType: 'Add citation' },
+    { selector: '#mwfA', text: '[<i>potential AI-generated content?</i>]', editType: 'Potential AI-generated content' },
+    { selector: '#mwnQ', text: '[<i>add a citation?</i>]', editType: 'Add citation' },
+    { selector: '#mwrw', text: '[<i>add a citation?</i>]', editType: 'Add citation' },
+    { selector: '#mwyQ', text: '[<i>add a citation?</i>]', editType: 'Add citation' },
+    { selector: '#mw0A', text: '[<i>add a citation?</i>]', editType: 'Add citation' },
+    { selector: '#mw5A', text: '[<i>add a citation?</i>]', editType: 'Add citation' },
+    { selector: '#mw7A', text: '[<i>add a citation?</i>]', editType: 'Add citation' },
+    { selector: '#mw7w', text: '[<i>add a citation?</i>]', editType: 'Add citation' },
+    { selector: '#mwAVY', text: '[<i>add a citation?</i>]', editType: 'Add citation' },
   ]
 
   const BLOCK_TAGS = new Set(['P', 'DIV', 'SECTION', 'BLOCKQUOTE', 'LI'])
@@ -277,24 +284,46 @@
 
   // --- viewport/toast observer ---
 
-  const visibleCount = ref(0)
   const cards = ref<CardData[]>([])
+  const visibleCount = ref(0)
+  const showEditTypes = ref(false)
+  const editTypesWithCounts = ref<{ label: (typeof EDIT_TYPE_ORDER)[number]; count: number }[]>([])
+  const elementToEditType = new Map<Element, (typeof EDIT_TYPE_ORDER)[number]>()
   let observer: MutationObserver | null = null
   let intersectionObserver: IntersectionObserver | null = null
   let observedTargets: Element[] = []
 
   function startViewportObserver(root: Element) {
-    observedTargets = HATNOTE_INJECTIONS
+    const targets = HATNOTE_INJECTIONS
       .map(({ selector }) => root.querySelector(selector))
       .filter(Boolean) as Element[]
+    observedTargets = targets
+    elementToEditType.clear()
+    HATNOTE_INJECTIONS.forEach(({ selector, editType }) => {
+      const el = root.querySelector(selector)
+      if (el) elementToEditType.set(el, editType)
+    })
 
     const visible = new Set<Element>()
+
+    function updateAggregates() {
+      visibleCount.value = visible.size
+      const counts = new Map<string, number>()
+      visible.forEach((el) => {
+        const t = elementToEditType.get(el)
+        if (t) counts.set(t, (counts.get(t) ?? 0) + 1)
+      })
+      editTypesWithCounts.value = EDIT_TYPE_ORDER.filter((label) => (counts.get(label) ?? 0) > 0).map((label) => ({
+        label,
+        count: counts.get(label)!,
+      }))
+    }
 
     intersectionObserver = new IntersectionObserver((entries) => {
       entries.forEach((e) => {
         e.isIntersecting ? visible.add(e.target) : visible.delete(e.target)
       })
-      visibleCount.value = visible.size
+      updateAggregates()
     })
 
     observedTargets.forEach((el) => intersectionObserver!.observe(el))
@@ -314,6 +343,7 @@
       if (intersectionObserver && observedTargets[0]?.isConnected) return true
       intersectionObserver?.disconnect()
       visibleCount.value = 0
+      editTypesWithCounts.value = []
       startViewportObserver(root)
     }
     return true
@@ -345,6 +375,10 @@
       editViewOpen.value = true
     }
   }
+
+  function toggleEditTypes() {
+    showEditTypes.value = !showEditTypes.value
+  }
 </script>
 
 <template>
@@ -365,8 +399,48 @@
     <div v-if="showHatnoteToast && visibleCount > 0" class="protowiki-hatnote-toast">
       <CdxMessage type="progressive">
         <div class="protowiki-hatnote-toast__inner">
-          <span><span class="protowiki-hatnote-toast__count">{{ visibleCount }}</span> edit suggestions in this section.</span>
-          <CdxButton action="progressive" weight="primary" size="small">Edit</CdxButton>
+          <div class="protowiki-hatnote-toast__content">
+            <div class="protowiki-hatnote-toast__summary-row">
+              <CdxButton
+                action="progressive"
+                weight="primary"
+                size="small"
+                :aria-label="showEditTypes ? 'Hide edit types' : 'Show edit types'"
+                class="protowiki-hatnote-toast__toggle-button"
+                @click.stop="toggleEditTypes"
+              >
+                <CdxIcon
+                  :icon="cdxIconExpand"
+                  size="small"
+                  class="protowiki-hatnote-toast__toggle-icon"
+                  :class="{ 'protowiki-hatnote-toast__toggle-icon--expanded': showEditTypes }"
+                />
+              </CdxButton>
+              <span class="protowiki-hatnote-toast__summary-text"
+                ><span class="protowiki-hatnote-toast__count">{{ visibleCount }}</span> edit suggestions in this
+                section.</span
+              >
+              <CdxButton action="progressive" weight="primary" size="small">Edit</CdxButton>
+            </div>
+            <div v-if="showEditTypes" class="protowiki-hatnote-toast__edit-types">
+              <span
+                v-for="item in editTypesWithCounts"
+                :key="item.label"
+                class="protowiki-hatnote-toast__edit-type-chip"
+                :title="
+                  item.label === AI_GENERATED_CONTENT_EDIT_TYPE ? 'You have made similar edits before' : undefined
+                "
+              >
+                <CdxIcon
+                  v-if="item.label === AI_GENERATED_CONTENT_EDIT_TYPE"
+                  :icon="cdxIconStar"
+                  size="small"
+                  class="protowiki-hatnote-toast__edit-type-icon"
+                />
+                {{ item.label }} ({{ item.count }})
+              </span>
+            </div>
+          </div>
         </div>
       </CdxMessage>
     </div>
@@ -442,10 +516,70 @@
 
   .protowiki-hatnote-toast__inner {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--spacing-75);
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--spacing-50);
     font-size: var(--font-size-small);
+  }
+
+  .protowiki-hatnote-toast__content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-50);
+    min-width: 0;
+  }
+
+  .protowiki-hatnote-toast__summary-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-50);
+    flex-wrap: nowrap;
+  }
+
+  .protowiki-hatnote-toast__summary-text {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .protowiki-hatnote-toast__toggle-button {
+    min-width: auto;
+    padding: 0;
+  }
+
+  .protowiki-hatnote-toast__toggle-button :deep(.cdx-icon) {
+    color: #fff;
+    fill: currentColor;
+  }
+
+  .protowiki-hatnote-toast__toggle-icon {
+    transition: transform 160ms ease;
+    transform: rotate(0deg);
+    color: #fff;
+  }
+
+  .protowiki-hatnote-toast__toggle-icon--expanded {
+    transform: rotate(180deg);
+  }
+
+  .protowiki-hatnote-toast__edit-types {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-35);
+  }
+
+  .protowiki-hatnote-toast__edit-type-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-25);
+    border: 1px solid color-mix(in srgb, #fff 45%, transparent);
+    border-radius: var(--border-radius-base);
+    padding: 2px var(--spacing-50);
+    line-height: 1.4;
+    background-color: color-mix(in srgb, #fff 10%, transparent);
+  }
+
+  .protowiki-hatnote-toast__edit-type-icon {
+    color: #fff;
   }
 
   :deep(.cdx-message--progressive) {
@@ -473,6 +607,12 @@
   .hatnote-toast-enter-from,
   .hatnote-toast-leave-to {
     transform: translateY(100%);
+  }
+
+  @media (max-width: 640px) {
+    .protowiki-hatnote-toast__summary-row {
+      flex-wrap: wrap;
+    }
   }
 
   @media (prefers-reduced-motion: reduce) {
