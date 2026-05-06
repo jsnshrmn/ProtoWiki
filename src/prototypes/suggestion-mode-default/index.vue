@@ -30,13 +30,34 @@
 
   const BLOCK_TAGS = new Set(['P', 'DIV', 'SECTION', 'BLOCKQUOTE', 'LI'])
 
+  function collapsedHTML(label: string): string {
+    return `[<i>${label}</i>]`
+  }
+
+  function expandedHTML(label: string): string {
+    return (
+      `<span class="protowiki-hatnote__bracket">[</span>` +
+      `<i class="protowiki-hatnote__label">${label}</i> ` +
+      `<span class="protowiki-hatnote__action protowiki-hatnote__action--yes">yes</span>` +
+      `<span class="protowiki-hatnote__bracket"> / </span>` +
+      `<span class="protowiki-hatnote__action protowiki-hatnote__action--no">no</span>` +
+      `<span class="protowiki-hatnote__bracket">]</span>`
+    )
+  }
+
   function injectHatnotes(root: Element) {
     for (const { selector, text } of HATNOTE_INJECTIONS) {
       const el = root.querySelector(selector)
       if (!el || el.classList.contains('protowiki-hatnote-group')) continue
+      const label = text.replace(/^\[/, '').replace(/\]$/, '').replace(/<\/?i>/g, '')
       const sup = document.createElement('sup')
       sup.className = 'protowiki-hatnote'
-      sup.innerHTML = text
+      sup.dataset.hatnoteLabel = label
+      sup.innerHTML = collapsedHTML(label)
+      sup.addEventListener('click', () => {
+        const expanded = sup.classList.toggle('protowiki-hatnote--expanded')
+        sup.innerHTML = expanded ? expandedHTML(label) : collapsedHTML(label)
+      })
       if (BLOCK_TAGS.has(el.tagName)) {
         el.classList.add('protowiki-hatnote-group')
         el.appendChild(sup)
@@ -120,5 +141,19 @@
   :deep(.protowiki-hatnote) {
     font-family: var(--font-family-system-sans);
     color: var(--color-warning);
+    cursor: pointer;
+  }
+
+  :deep(.protowiki-hatnote__bracket) {
+    color: var(--color-base);
+  }
+
+  :deep(.protowiki-hatnote__label) {
+    color: var(--color-warning);
+    font-style: italic;
+  }
+
+  :deep(.protowiki-hatnote__action) {
+    color: var(--color-progressive);
   }
 </style>
