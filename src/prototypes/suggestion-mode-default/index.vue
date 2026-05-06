@@ -86,11 +86,12 @@
     if (!showHatnotes || !containerRef.value) return
     observer = new MutationObserver(() => {
       const root = containerRef.value?.querySelector('.mw-parser-output')
-      if (root && root.children.length > 0) {
-        injectHatnotes(root)
-        observer?.disconnect()
-        observer = null
-      }
+      if (!root || root.children.length === 0) return
+      const hasTarget = HATNOTE_INJECTIONS.some(({ selector }) => root.querySelector(selector))
+      if (!hasTarget) return
+      injectHatnotes(root)
+      observer?.disconnect()
+      observer = null
     })
     observer.observe(containerRef.value, { childList: true, subtree: true })
   })
