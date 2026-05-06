@@ -149,17 +149,21 @@
 
   :deep(.protowiki-hatnote) {
     font-family: var(--font-family-system-sans);
-    color: var(--color-warning);
+    color: var(--color-base);
     cursor: pointer;
+  }
+
+  :deep(.protowiki-hatnote i) {
+    color: var(--color-warning);
   }
 
   :deep(sup.mw-ref > a) {
     text-decoration: none;
   }
 
-  :deep(.protowiki-hatnote__bracket) {
+  /* :deep(.protowiki-hatnote__bracket) {
     color: var(--color-base);
-  }
+  } */
 
   :deep(.protowiki-hatnote__label) {
     color: var(--color-warning);
