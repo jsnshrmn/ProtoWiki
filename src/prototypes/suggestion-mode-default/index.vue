@@ -252,7 +252,10 @@
     }
     previewHTML += cleanClone(blockClone).outerHTML
 
-    return { type: 'ai-content', previewHTML }
+    // Seed the textarea with the plain text of the highlighted block
+    const plainText = (block.textContent ?? '').trim()
+
+    return { type: 'ai-content', previewHTML, plainText }
   }
 
   function buildCards(root: Element): CardData[] {
@@ -487,10 +490,6 @@
   :deep(sup.mw-ref > a) {
     text-decoration: none;
   }
-
-  /* :deep(.protowiki-hatnote__bracket) {
-    color: var(--color-base);
-  } */
 
   :deep(.protowiki-hatnote__label) {
     color: var(--color-warning);
