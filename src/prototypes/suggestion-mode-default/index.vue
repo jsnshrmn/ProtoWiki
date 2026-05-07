@@ -258,10 +258,11 @@
     return { type: 'ai-content', previewHTML, plainText }
   }
 
-  function buildCards(root: Element): CardData[] {
-    return HATNOTE_INJECTIONS.flatMap(({ selector, text }): CardData[] => {
+  function buildCards(root: Element, filter?: Set<Element>, typeFilter?: string): CardData[] {
+    return HATNOTE_INJECTIONS.flatMap(({ selector, text, editType }): CardData[] => {
       const el = root.querySelector(selector)
-      if (!el) return []
+      if (!el || (filter && !filter.has(el))) return []
+      if (typeFilter && editType !== typeFilter) return []
 
       const type: CardData['type'] = text.includes('duplicate')
         ? 'remove-duplicate'
@@ -288,6 +289,7 @@
   // --- viewport/toast observer ---
 
   const cards = ref<CardData[]>([])
+  const visibleMarkers = ref(new Set<Element>())
   const visibleCount = ref(0)
   const showEditTypes = ref(false)
   const editTypesWithCounts = ref<{ label: (typeof EDIT_TYPE_ORDER)[number]; count: number }[]>([])
@@ -307,12 +309,12 @@
       if (el) elementToEditType.set(el, editType)
     })
 
-    const visible = new Set<Element>()
+    visibleMarkers.value.clear()
 
     function updateAggregates() {
-      visibleCount.value = visible.size
+      visibleCount.value = visibleMarkers.value.size
       const counts = new Map<string, number>()
-      visible.forEach((el) => {
+      visibleMarkers.value.forEach((el) => {
         const t = elementToEditType.get(el)
         if (t) counts.set(t, (counts.get(t) ?? 0) + 1)
       })
@@ -324,7 +326,7 @@
 
     intersectionObserver = new IntersectionObserver((entries) => {
       entries.forEach((e) => {
-        e.isIntersecting ? visible.add(e.target) : visible.delete(e.target)
+        e.isIntersecting ? visibleMarkers.value.add(e.target) : visibleMarkers.value.delete(e.target)
       })
       updateAggregates()
     })
@@ -372,10 +374,17 @@
     intersectionObserver = null
   })
 
+  function openEditView(filterVisible = false, typeFilter?: string) {
+    const root = containerRef.value?.querySelector('.mw-parser-output')
+    if (!root) return
+    cards.value = buildCards(root, filterVisible ? visibleMarkers.value : undefined, typeFilter)
+    editViewOpen.value = true
+  }
+
   function onArticleClick(e: MouseEvent) {
     const target = e.target as HTMLElement
     if (target.closest('[aria-label="Edit"]')) {
-      editViewOpen.value = true
+      openEditView(false)
     }
   }
 
@@ -399,7 +408,7 @@
     <EditView v-if="editViewOpen" :cards="cards" @close="editViewOpen = false" />
   </Transition>
   <Transition name="hatnote-toast">
-    <div v-if="showHatnoteToast && visibleCount > 0" class="protowiki-hatnote-toast">
+    <div v-if="showHatnoteToast && visibleCount > 0 && !editViewOpen" class="protowiki-hatnote-toast">
       <CdxMessage type="progressive">
         <div class="protowiki-hatnote-toast__inner">
           <div class="protowiki-hatnote-toast__content">
@@ -423,7 +432,6 @@
                 ><span class="protowiki-hatnote-toast__count">{{ visibleCount }}</span> edit suggestions in this
                 section.</span
               >
-              <CdxButton action="progressive" weight="primary" size="small">Edit</CdxButton>
             </div>
             <div v-if="showEditTypes" class="protowiki-hatnote-toast__edit-types">
               <span
@@ -433,6 +441,7 @@
                 :title="
                   item.label === AI_GENERATED_CONTENT_EDIT_TYPE ? 'You have made similar edits before' : undefined
                 "
+                @click="openEditView(true, item.label)"
               >
                 <CdxIcon
                   v-if="item.label === AI_GENERATED_CONTENT_EDIT_TYPE"
@@ -575,6 +584,11 @@
     padding: 2px var(--spacing-50);
     line-height: 1.4;
     background-color: color-mix(in srgb, #fff 10%, transparent);
+    cursor: pointer;
+  }
+
+  .protowiki-hatnote-toast__edit-type-chip:hover {
+    background-color: color-mix(in srgb, #fff 20%, transparent);
   }
 
   .protowiki-hatnote-toast__edit-type-icon {

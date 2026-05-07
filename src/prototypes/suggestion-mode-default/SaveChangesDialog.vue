@@ -12,6 +12,7 @@
   const minor = ref(false)
   const watchPage = ref(false)
 
+  // Seed summary from the prop each time the dialog opens
   watch(
     () => props.open,
     (open) => {
@@ -32,6 +33,7 @@
   <Transition name="save-dialog">
     <div v-if="open" class="save-dialog-backdrop" @click.self="emit('back')">
       <div class="save-dialog" role="dialog" aria-modal="true" aria-labelledby="save-dialog-title">
+        <!-- drag handle -->
         <div class="save-dialog__handle" aria-hidden="true" />
 
         <h2 id="save-dialog-title" class="save-dialog__title">Save your changes</h2>
@@ -50,8 +52,12 @@
         </CdxField>
 
         <div class="save-dialog__checks">
-          <CdxCheckbox v-model="minor">This is a minor edit</CdxCheckbox>
-          <CdxCheckbox v-model="watchPage">Watch this page</CdxCheckbox>
+          <CdxCheckbox v-model="minor" input-value="minor">
+            This is a minor edit
+          </CdxCheckbox>
+          <CdxCheckbox v-model="watchPage" input-value="watch">
+            Watch this page
+          </CdxCheckbox>
         </div>
 
         <div class="save-dialog__actions">
@@ -73,6 +79,7 @@
 </template>
 
 <style scoped>
+  /* Backdrop */
   .save-dialog-backdrop {
     position: fixed;
     inset: 0;
@@ -82,17 +89,20 @@
     align-items: flex-end;
   }
 
+  /* Sheet */
   .save-dialog {
     width: 100%;
     background-color: var(--background-color-base, #fff);
     border-radius: 12px 12px 0 0;
-    padding: var(--spacing-100, 16px) var(--spacing-150, 24px);
+    padding: var(--spacing-100, 16px) var(--spacing-150, 24px) var(--spacing-200, 32px);
     display: flex;
     flex-direction: column;
     gap: var(--spacing-100, 16px);
+    /* prevent content going behind home indicator on iOS */
     padding-bottom: max(var(--spacing-200, 32px), env(safe-area-inset-bottom));
   }
 
+  /* Drag handle */
   .save-dialog__handle {
     width: 36px;
     height: 4px;
@@ -106,6 +116,10 @@
     font-size: var(--font-size-large, 1.125rem);
     font-weight: var(--font-weight-bold, 700);
     font-family: var(--font-family-system-sans);
+  }
+
+  .save-dialog__field {
+    margin: 0;
   }
 
   .save-dialog__summary {
@@ -130,11 +144,14 @@
     justify-content: center;
   }
 
+  /* Slide-up transition */
   .save-dialog-enter-active {
-    transition: transform 300ms cubic-bezier(0.32, 0.72, 0, 1), opacity 200ms ease;
+    transition: transform 300ms cubic-bezier(0.32, 0.72, 0, 1),
+                opacity 200ms ease;
   }
   .save-dialog-leave-active {
-    transition: transform 220ms cubic-bezier(0.23, 1, 0.32, 1), opacity 160ms ease;
+    transition: transform 220ms cubic-bezier(0.23, 1, 0.32, 1),
+                opacity 160ms ease;
   }
   .save-dialog-enter-from,
   .save-dialog-leave-to {
@@ -146,7 +163,13 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .save-dialog-enter-active, .save-dialog-leave-active { transition: opacity 200ms ease; }
-    .save-dialog-enter-from .save-dialog, .save-dialog-leave-to .save-dialog { transform: none; }
+    .save-dialog-enter-active,
+    .save-dialog-leave-active {
+      transition: opacity 200ms ease;
+    }
+    .save-dialog-enter-from .save-dialog,
+    .save-dialog-leave-to .save-dialog {
+      transform: none;
+    }
   }
 </style>
